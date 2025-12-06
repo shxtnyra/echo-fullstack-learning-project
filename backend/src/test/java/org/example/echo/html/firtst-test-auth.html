@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест API аутентификации</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #e9ecef;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .token-display {
+            word-break: break-all;
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+<h1>🔐 Тестирование API аутентификации</h1>
+
+<div class="tabs">
+    <div class="tab active" onclick="showTab('register')">Регистрация</div>
+    <div class="tab" onclick="showTab('login')">Вход</div>
+    <div class="tab" onclick="showTab('refresh')">Обновление токена</div>
+    <div class="tab" onclick="showTab('logout')">Выход</div>
+</div>
+
+<!-- Регистрация -->
+<div id="register" class="tab-content active">
+    <div class="container">
+        <h2>📝 Регистрация нового пользователя</h2>
+        <div class="form-group">
+            <label for="regUsername">Имя пользователя:</label>
+            <input type="text" id="regUsername" placeholder="Введите имя пользователя">
+        </div>
+        <div class="form-group">
+            <label for="regPassword">Пароль:</label>
+            <input type="password" id="regPassword" placeholder="Введите пароль">
+        </div>
+        <button onclick="register()">Зарегистрироваться</button>
+        <div id="registerResponse" class="response" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Вход -->
+<div id="login" class="tab-content">
+    <div class="container">
+        <h2>🔑 Вход в систему</h2>
+        <div class="form-group">
+            <label for="loginUsername">Имя пользователя:</label>
+            <input type="text" id="loginUsername" placeholder="Введите имя пользователя">
+        </div>
+        <div class="form-group">
+            <label for="loginPassword">Пароль:</label>
+            <input type="password" id="loginPassword" placeholder="Введите пароль">
+        </div>
+        <button onclick="login()">Войти</button>
+        <div id="loginResponse" class="response" style="display: none;"></div>
+
+        <div id="tokens" style="display: none;">
+            <h3>Токены:</h3>
+            <div class="token-display">
+                <strong>Access Token:</strong><br>
+                <span id="accessToken"></span>
+            </div>
+            <div class="token-display">
+                <strong>Refresh Token:</strong><br>
+                <span id="refreshToken"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Обновление токена -->
+<div id="refresh" class="tab-content">
+    <div class="container">
+        <h2>🔄 Обновление токена</h2>
+        <div class="form-group">
+            <label for="refreshTokenInput">Refresh Token:</label>
+            <textarea id="refreshTokenInput" rows="3" placeholder="Введите refresh token"></textarea>
+        </div>
+        <button onclick="refreshToken()">Обновить токен</button>
+        <div id="refreshResponse" class="response" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Выход -->
+<div id="logout" class="tab-content">
+    <div class="container">
+        <h2>🚪 Выход из системы</h2>
+        <div class="form-group">
+            <label for="logoutToken">Refresh Token:</label>
+            <textarea id="logoutToken" rows="3" placeholder="Введите refresh token для выхода"></textarea>
+        </div>
+        <button onclick="logout()">Выйти</button>
+        <div id="logoutResponse" class="response" style="display: none;"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8082/v1/auth';
+    let currentTokens = {
+        accessToken: '',
+        refreshToken: ''
+    };
+
+    function showTab(tabName) {
+        // Скрыть все вкладки
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+
+        // Показать выбранную вкладку
+        document.getElementById(tabName).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    async function register() {
+        const username = document.getElementById('regUsername').value;
+        const password = document.getElementById('regPassword').value;
+
+        if (!username || !password) {
+            alert('Заполните все поля');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+            const responseDiv = document.getElementById('registerResponse');
+
+            if (response.ok) {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '✅ Регистрация успешна!\n\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'green';
+
+                // Автозаполнение формы входа
+                document.getElementById('loginUsername').value = username;
+                document.getElementById('loginPassword').value = password;
+
+                // Переход на вкладку входа
+                showTab('login');
+            } else {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '❌ Ошибка регистрации:\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'red';
+            }
+        } catch (error) {
+            const responseDiv = document.getElementById('registerResponse');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '❌ Ошибка сети: ' + error.message;
+            responseDiv.style.color = 'red';
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        if (!username || !password) {
+            alert('Заполните все поля');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+            const responseDiv = document.getElementById('loginResponse');
+
+            if (response.ok) {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '✅ Вход успешен!\n\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'green';
+
+                // Сохраняем токены
+                currentTokens.accessToken = data.accessToken;
+                currentTokens.refreshToken = data.refreshToken;
+
+                // Показываем токены
+                document.getElementById('tokens').style.display = 'block';
+                document.getElementById('accessToken').textContent = data.accessToken;
+                document.getElementById('refreshToken').textContent = data.refreshToken;
+
+                // Автозаполнение refresh токена в других формах
+                document.getElementById('refreshTokenInput').value = data.refreshToken;
+                document.getElementById('logoutToken').value = data.refreshToken;
+            } else {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '❌ Ошибка входа:\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'red';
+            }
+        } catch (error) {
+            const responseDiv = document.getElementById('loginResponse');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '❌ Ошибка сети: ' + error.message;
+            responseDiv.style.color = 'red';
+        }
+    }
+
+    async function refreshToken() {
+        const refreshToken = document.getElementById('refreshTokenInput').value;
+
+        if (!refreshToken) {
+            alert('Введите refresh token');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refreshToken: refreshToken
+                })
+            });
+
+            const data = await response.json();
+            const responseDiv = document.getElementById('refreshResponse');
+
+            if (response.ok) {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '✅ Токен обновлен!\n\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'green';
+
+                // Обновляем токены
+                currentTokens.accessToken = data.accessToken;
+                currentTokens.refreshToken = data.refreshToken;
+
+                // Обновляем отображение токенов
+                document.getElementById('accessToken').textContent = data.accessToken;
+                document.getElementById('refreshToken').textContent = data.refreshToken;
+                document.getElementById('refreshTokenInput').value = data.refreshToken;
+                document.getElementById('logoutToken').value = data.refreshToken;
+            } else {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '❌ Ошибка обновления токена:\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'red';
+            }
+        } catch (error) {
+            const responseDiv = document.getElementById('refreshResponse');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '❌ Ошибка сети: ' + error.message;
+            responseDiv.style.color = 'red';
+        }
+    }
+
+    async function logout() {
+        const refreshToken = document.getElementById('logoutToken').value;
+
+        if (!refreshToken) {
+            alert('Введите refresh token');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/logout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refreshToken: refreshToken
+                })
+            });
+
+            const responseDiv = document.getElementById('logoutResponse');
+
+            if (response.ok) {
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '✅ Выход выполнен успешно!';
+                responseDiv.style.color = 'green';
+
+                // Очищаем токены
+                currentTokens.accessToken = '';
+                currentTokens.refreshToken = '';
+                document.getElementById('tokens').style.display = 'none';
+            } else {
+                const data = await response.json();
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = '❌ Ошибка выхода:\n' + JSON.stringify(data, null, 2);
+                responseDiv.style.color = 'red';
+            }
+        } catch (error) {
+            const responseDiv = document.getElementById('logoutResponse');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '❌ Ошибка сети: ' + error.message;
+            responseDiv.style.color = 'red';
+        }
+    }
+</script>
+</body>
+</html>

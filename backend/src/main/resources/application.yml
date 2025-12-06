@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: echo
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+      file-size-threshold: 2KB
+      location: /data/upload_tmp
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/echo-beta
+    username: postgres
+    password: 6792
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+server:
+  port: 8082
+
+jwt:
+  access:
+    secret: "your-very-long-secret-key-that-is-at-least-64-characters-long-for-hs512-algorithm-usage"
+    expiration: 1800000
+
+  refresh:
+    secret: "your-very-long-secret-key-that-is-at-least-64-characters-long-for-hs512-algorithm-usage"
+    expiration: 2592000000
+
+  session:
+    limit: 5
+    retention-days: 30
+
+app:
+  base-url: http://localhost:8082

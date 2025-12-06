@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>API Tester — single file</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#7c3aed;--muted:#94a3b8;--ok:#10b981}
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:linear-gradient(180deg,#071124 0%, #041028 100%); color:#e6eef8; margin:0; padding:24px}
+    .wrap{max-width:1100px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+    .row{display:flex;gap:12px;align-items:center}
+    input[type=text], input[type=url], select, textarea {background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:inherit;width:100%}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    button{background:linear-gradient(90deg,var(--accent),#4c1d95);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .small{padding:6px 8px;font-size:13px}
+    pre{background:#020617;padding:12px;border-radius:8px;overflow:auto;color:#cfe9ff}
+    .muted{color:var(--muted);font-size:13px}
+    .endpoint{margin-bottom:12px}
+    .flex{display:flex;gap:8px;align-items:center}
+    .full{width:100%}
+    .file{border:1px dashed rgba(255,255,255,0.04);padding:12px;border-radius:8px}
+    .success{color:var(--ok)}
+    footer{margin-top:16px;color:var(--muted);font-size:13px}
+    .auth-pill{display:flex;gap:8px;align-items:center}
+    .ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0b1220" stroke="#111827"/><path d="M7 12h10M7 7h10M7 17h10" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div style="flex:1">
+          <h1>OpenAPI quick tester</h1>
+          <div class="muted">single-file HTML для тестирования основных эндпоинтов (multipart + JSON)</div>
+        </div>
+        <div style="min-width:320px">
+          <div class="card" style="padding:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="muted">Auth</div>
+              <div class="muted" id="tokenStatus">No token</div>
+            </div>
+            <div style="margin-top:8px" class="grid">
+              <input id="baseUrl" type="url" value="http://localhost:8082" />
+              <input id="authTokenInput" type="text" placeholder="Paste token (or set via login)" />
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="setToken">Set token</button>
+              <button id="clearToken" class="ghost">Clear</button>
+            </div>
+            <div style="margin-top:8px;border-top:1px dashed rgba(255,255,255,0.03);padding-top:8px">
+              <div class="muted">Optional: Login (POST) to obtain token</div>
+              <div class="grid" style="margin-top:8px">
+                <input id="loginPath" type="text" value="/api/v1/auth/login" />
+                <input id="loginUsername" type="text" placeholder="username/email" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+                <input id="loginPassword" type="text" placeholder="password" />
+                <button id="doLogin">Login</button>
+              </div>
+              <div class="muted" style="margin-top:6px">Поддерживаемые форматы ответа: {"token":"..."} или {"accessToken":"..."} или {"data":{"token":"..."}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="ping" class="small">Ping /api/v1/users/me</button>
+        <button id="raw" class="small">Raw GET</button>
+        <input id="rawPath" type="text" placeholder="/api/v1/users/1 or /v1/whatever" style="width:420px" />
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h3 style="margin-top:0">1) Create Track (multipart/form-data)</h3>
+      <div class="endpoint" style="position: relative;">
+        <div>
+          <label>Title</label>
+          <input id="trackTitle" type="text" value="Test track" />
+        </div>
+
+        <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="position: relative;">
+            <label>Artist</label>
+            <input id="trackArtist" type="text" placeholder="Type to search artist" autocomplete="off" />
+            <div id="artistSuggestions" class="suggestions"></div>
+          </div>
+          <div style="position: relative;">
+            <label>Source</label>
+            <input id="trackSource" type="text" placeholder="Type to search source" autocomplete="off" />
+            <div id="sourceSuggestions" class="suggestions"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;position: relative;">
+          <label>Album</label>
+          <input id="trackAlbum" type="text" placeholder="Type to search album" autocomplete="off" />
+          <div id="albumSuggestions" class="suggestions"></div>
+        </div>
+
+        <div style="margin-top:8px;position: relative;">
+          <label>Tags (select multiple)</label>
+          <input id="trackTags" type="text" placeholder="Type tag name" autocomplete="off" />
+          <div id="tagSuggestions" class="suggestions"></div>
+          <div id="selectedTags" class="muted" style="margin-top:4px"></div>
+        </div>
+
+        <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label>Audio file</label>
+            <input id="audioFile" type="file" />
+          </div>
+          <div>
+            <label>Cover file (optional)</label>
+            <input id="coverFile" type="file" />
+          </div>
+        </div>
+
+        <div style="margin-top:10px" class="flex">
+          <button id="createTrack">Create Track</button>
+          <div class="muted">Сформирует multipart/form-data с полем <code>request</code> (JSON) + файлы</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h3 style="margin-top:0">2) Update Tag (PUT /api/v1/tags/{id})</h3>
+      <div class="endpoint">
+        <div class="grid">
+          <div>
+            <label>Tag ID</label>
+            <input id="tagId" type="text" value="1" />
+          </div>
+          <div>
+            <label>New name</label>
+            <input id="tagName" type="text" value="updated-tag" />
+          </div>
+        </div>
+        <div style="margin-top:10px" class="flex">
+          <button id="updateTag">Update Tag</button>
+          <div class="muted">Отправляет JSON в теле с Content-Type: application/json</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h3 style="margin-top:0">3) Upload My Avatar (multipart)</h3>
+      <div class="endpoint">
+        <div>
+          <label>Avatar file</label>
+          <input id="avatarFile" type="file" />
+        </div>
+        <div style="margin-top:10px" class="flex">
+          <button id="uploadAvatar">Upload Avatar</button>
+          <div class="muted">Endpoint: POST /api/v1/users/me/avatar (multipart/form-data)</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <h3 style="margin-top:0">Response / Logs</h3>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button id="clear" class="small">Clear</button>
+        <div class="muted">Все ответы показываются здесь. Обратите внимание на CORS — для теста сервер должен разрешать запросы с этого файла.</div>
+      </div>
+      <pre id="log">Ready.</pre>
+    </section>
+
+    <footer class="muted">Подсказка: если сервер локальный и вы открываете этот файл в браузере (file://), Chrome может блокировать CORS — запустите простой static-server или откройте через Live Server в VS Code.</footer>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id)
+  const log = txt => {
+  const el = $('log');
+  el.textContent = `${new Date().toISOString()}
+${txt}
+
+` + el.textContent;
+}
+
+  function setToken(tok) {
+    if (!tok) return
+    localStorage.setItem('api_tk', tok)
+    $('tokenStatus').textContent = 'Token set'
+    $('authTokenInput').value = tok
+    log('Token saved to localStorage')
+  }
+  function clearToken() {
+    localStorage.removeItem('api_tk')
+    $('tokenStatus').textContent = 'No token'
+    $('authTokenInput').value = ''
+    log('Token cleared')
+  }
+  function getToken() {
+    return localStorage.getItem('api_tk') || $('authTokenInput').value.trim() || ''
+  }
+
+  function headers() {
+    const h = {'Accept':'application/json'}
+    const token = getToken()
+    if (token) h['Authorization'] = token.startsWith('Bearer ') ? token : ('Bearer ' + token)
+    return h
+  }
+
+  async function rawGet(path) {
+    const base = $('baseUrl').value.replace(/\/$/, '')
+    const url = base + path
+    try {
+      const res = await fetch(url, {method:'GET', headers: headers()})
+      const t = await res.text()
+      log(`GET ${url} → ${res.status}
+${t}`)
+    } catch(e) { log('ERROR: '+ e.message) }
+  }
+
+  $('ping').addEventListener('click', ()=> rawGet('/api/v1/users/me'))
+  $('raw').addEventListener('click', ()=> rawGet($('rawPath').value || '/'))
+
+  $('setToken').addEventListener('click', ()=> setToken($('authTokenInput').value.trim()))
+  $('clearToken').addEventListener('click', ()=> clearToken())
+
+  // Login helper: POST to loginPath with username/password
+  $('doLogin').addEventListener('click', async ()=>{
+    const base = $('baseUrl').value.replace(/\/$/, '')
+    const path = $('loginPath').value || '/api/v1/auth/login'
+    const url = base + path
+    const username = $('loginUsername').value
+    const password = $('loginPassword').value
+    if (!username || !password) { log('login: fill username and password'); return }
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify({username, password})
+      })
+      const json = await res.json()
+      log(`LOGIN ${url} → ${res.status}
+${JSON.stringify(json)}`)
+      // try common token locations
+      const tok = json.token || json.accessToken || (json.data && (json.data.token || json.data.accessToken))
+      if (tok) {
+        setToken(tok)
+      } else {
+        log('Login response did not contain token in common fields. Paste token manually if available.')
+      }
+    } catch(e) { log('ERROR: ' + e.message) }
+  })
+
+  $('clear').addEventListener('click', ()=> $('log').textContent = '')
+
+  // selected objects
+  let selectedArtist = null;
+  let selectedSource = null;
+  let selectedAlbum = null;
+  let selectedTags = [];
+
+  // функция автокомплита
+  async function setupAutocomplete(inputId, suggestionsId, apiPath, onSelect, multiple=false, displayDivId=null) {
+    const input = $(inputId);
+    const sugDiv = $(suggestionsId);
+    const displayDiv = displayDivId ? $(displayDivId) : null;
+
+    input.addEventListener('input', async () => {
+      const query = input.value.trim();
+      if (!query) { sugDiv.innerHTML=''; return; }
+
+      try {
+        const base = $('baseUrl').value.replace(/\/$/, '');
+        const res = await fetch(`${base}${apiPath}?query=${encodeURIComponent(query)}`, {headers: headers()});
+        const json = await res.json();
+        sugDiv.innerHTML = '';
+        json.forEach(item => {
+          const div = document.createElement('div');
+          div.textContent = item.name;
+          div.addEventListener('click', () => {
+            input.value = item.name;
+            if (multiple) {
+              if (!selectedTags.find(t=>t.id===item.id)) selectedTags.push(item);
+              if (displayDiv) displayDiv.textContent = selectedTags.map(t=>t.name).join(', ');
+            } else {
+              onSelect(item);
+            }
+            sugDiv.innerHTML = '';
+          });
+          sugDiv.appendChild(div);
+        });
+      } catch(e) { log('Autocomplete error: '+ e.message) }
+    });
+  }
+
+  // подключаем автокомплиты
+  setupAutocomplete('trackArtist','artistSuggestions','/api/v1/artists/search', i => selectedArtist = i);
+  setupAutocomplete('trackSource','sourceSuggestions','/api/v1/sources/search', i => selectedSource = i);
+  setupAutocomplete('trackAlbum','albumSuggestions','/api/v1/albums/search', i => selectedAlbum = i);
+  setupAutocomplete('trackTags','tagSuggestions','/api/v1/tags/search', null, true, 'selectedTags');
+
+  // отправка трека
+  $('createTrack').addEventListener('click', async ()=>{
+    const base = $('baseUrl').value.replace(/\/$/, '');
+    const url = base + '/api/v1/tracks';
+
+    const audio = $('audioFile').files[0];
+    if (!audio) { log('Choose audio file first'); return; }
+    const cover = $('coverFile').files[0];
+
+    const requestObj = {
+      title: $('trackTitle').value || 'test',
+      artistId: selectedArtist?.id,
+      sourceId: selectedSource?.id,
+      albumId: selectedAlbum?.id,
+      tagIds: selectedTags.map(t=>t.id)
+    };
+
+    const fd = new FormData();
+    fd.append('request', new Blob([JSON.stringify(requestObj)], {type:'application/json'}));
+    fd.append('audioFile', audio);
+    if (cover) fd.append('coverFile', cover);
+
+    try {
+      const res = await fetch(url, { method: 'POST', headers: headers(), body: fd });
+      const txt = await res.text();
+      log(`POST ${url} → ${res.status}\n${txt}`);
+    } catch(e) { log('ERROR: '+ e.message); }
+  });
+
+  // Update Tag
+  $('updateTag').addEventListener('click', async ()=>{
+    const base = $('baseUrl').value.replace(/\/$/, '')
+    const id = $('tagId').value.trim()
+    if (!id) { log('Tag id required'); return }
+    const url = `${base}/api/v1/tags/${id}`
+    const body = { name: $('tagName').value }
+    try {
+      const res = await fetch(url, { method:'PUT', headers: {...headers(), 'Content-Type':'application/json'}, body: JSON.stringify(body)})
+      const txt = await res.text()
+      log(`PUT ${url} → ${res.status}
+${txt}`)
+    } catch(e) { log('ERROR: '+ e.message) }
+  })
+
+  // Upload avatar
+  $('uploadAvatar').addEventListener('click', async ()=>{
+    const base = $('baseUrl').value.replace(/\/$/, '')
+    const url = base + '/api/v1/users/me/avatar'
+    const file = $('avatarFile').files[0]
+    if (!file) { log('choose avatar file'); return }
+    const fd = new FormData(); fd.append('avatar', file)
+    try {
+      const res = await fetch(url, { method:'POST', headers: headers(), body: fd })
+      const txt = await res.text()
+      log(`POST ${url} → ${res.status}
+${txt}`)
+    } catch(e) { log('ERROR: '+ e.message) }
+  })
+
+  // show token if present
+  (function(){ const t = getToken(); if (t) { $('tokenStatus').textContent='Token set'; $('authTokenInput').value=t } })()
+
+</script>
+</body>
+</html>
